@@ -16,19 +16,26 @@ export const mangaSlice = createApi({
       invalidatesTags: ["Mangas","Episodes"],
     }),
     fetchManga: builder.query({
-      query: ({page,searchName}) => ({
-        url: `/admin/fetchingManga?page=${page} &search=${searchName}`,
+      query: ({page,searchName,filterBy,filterName}) => ({
+        url: `/admin/fetchingManga?page=${page} &search=${searchName} &filterBy=${filterBy} &filterName=${filterName}`,
       }),
       providesTags: ["Mangas"],
     }),
     fetchMangaForSearch:builder.query({
-      query:(page)=>({
-        url:`/admin/fetchingManga?page=${page}`
-      })
+      query:()=>({
+        url:`/admin/fetchingMangaForSearch`
+      }),
+      providesTags:['Mangas'],
     }),
     fetchByMangaId:builder.query({
       query:(id)=>({
         url:`/admin/fetchByMangaId/${id}`
+      }),
+      providesTags:['Mangas'],
+    }),
+    fetchMangaByName:builder.query({
+      query:({searchName})=>({
+        url:`/admin/fetchingMangaByName? searchName=${searchName}`,
       }),
       providesTags:['Mangas'],
     }),
@@ -110,7 +117,8 @@ export const {
   useCreateImagesByIdMutation,
   useCountEpisodeQuery,
   useLoginMutation,
-  useRegisterAdminMutation
+  useRegisterAdminMutation,
+  useFetchMangaByNameQuery
 } = mangaSlice;
 
 

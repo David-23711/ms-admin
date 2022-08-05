@@ -4,6 +4,7 @@ import {
   ButtonGroup,
   Container,
   LinearProgress,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -14,45 +15,80 @@ import {
 } from "@material-ui/core";
 import React, { useEffect, useState } from "react";
 import { useFetchGenreQuery } from "../features/genreSlice";
-import { useDeleteMangaMutation, useFetchMangaForSearchQuery, useFetchMangaQuery } from "../features/mangaSlice";
+import {
+  useDeleteMangaMutation,
+} from "../features/mangaSlice";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
 import AddPagination from "./AddPagination";
 import { useNavigate, useParams } from "react-router-dom";
 import { mangaSlice } from "../features/mangaSlice";
 import { Autocomplete } from "@material-ui/lab";
-import useStyles from './styles'
+import useStyles from "./styles";
+import axios from "axios";
 const ShowMangaPage = () => {
   // const { data, isFetching, isError, error } = useFetchMangaQuery();
-  const classes=useStyles();
-  const [trigger, { data, isFetching, isError, error }] =
+  const classes = useStyles();
+  const [trigger, { isFetching, isError, error }] =
     mangaSlice.endpoints.fetchManga.useLazyQuery();
   // const {data:searchData}=useFetchMangaForSearchQuery();
-  const [fetching=trigger,{data:searchData}]=mangaSlice.endpoints.fetchMangaForSearch.useLazyQuery();
-  const [deleteManga,{isLoading}]=useDeleteMangaMutation();
+  const [fetching = trigger, { data: searchData }] =
+    mangaSlice.endpoints.fetchMangaForSearch.useLazyQuery();
+    const [datas,setDatas]=useState([]);
+  const [fetchByName=trigger]=mangaSlice.endpoints.fetchMangaByName.useLazyQuery();
+  const [deleteManga, { isLoading }] = useDeleteMangaMutation();
   if (isError) console.log(error);
   const { data: genreData } = useFetchGenreQuery();
   const getGenreById = (id) => {
     return genreData?.data?.find((item) => item.id == id)?.name;
   };
   const navigate = useNavigate();
-  const count = data?.last_page;
+  const [count,setCount] = useState(0);
   const { page: id } = useParams();
   const [page, setPage] = useState(id ? id : 1);
+  const [filterName,setFilterName]=useState('id');
   const changePage = () => {
     navigate(`/admin/manga/paginate/${page}`);
-    trigger({page});
+    trigger({ page }).then((resp)=>{
+     setDatas(resp.data.data);
+     setCount(resp.data.last_page)
+    });
   };
-  const deleting=(id,image)=>{
-    deleteManga({id,image})
+  const deleting = async (id, image) => {
+    deleteManga({ id, image }).unwrap().then(()=>{
+    //   trigger({ page }).then((resp)=>{
+    //   setDatas(resp.data.data);
+    //   setCount(resp.data.last_page)
+    //  });
+    })
     fetching();
-  }
-  const searchByName=(searchName)=>{
-    if(!searchName){
-      trigger({page})
+    await axios.get(`http://127.0.0.1:8000/api/admin/fetchingManga?page=${page}`).then((resp)=>{
+      setDatas(resp.data.data);
+      setCount(resp.data.last_page)
+    })
+    
+  };
+  const searchByName = (searchName) => {
+    if (!searchName) {
+      trigger({ page }).then((resp)=>{
+        setDatas(resp.data.data)
+        setCount(resp.data.last_page)
+      });
+      
+    }else{
+      fetchByName({ page, searchName }).then((resp)=>{
+      setDatas(resp.data.data);
+      setCount(resp.data.last_page)
+      setFilterName('id');
+    });
     }
-    trigger({page,searchName})
-  }
+    
+  };
+const filterManga=(value)=>{
+trigger({page,filterBy:value,filterName}).then((resp)=>{
+  setDatas(resp.data.data)
+});
+}
   useEffect(() => {
     changePage();
     fetching();
@@ -60,48 +96,66 @@ const ShowMangaPage = () => {
   return (
     <div>
       <Container>
-        <TableContainer style={{maxHeight:600}} className={`bg-white rounded-md mt-5  shadow-lg drop-shadow-lg ${classes.tableContainer}`}>
+        <TableContainer
+          style={{ maxHeight: 600 }}
+          className={`bg-white rounded-md mt-5  shadow-lg drop-shadow-lg ${classes.tableContainer}`}
+        >
           <Table stickyHeader aria-label="sticky table">
             <TableHead>
-            <TableRow>
-              <TableCell colSpan={3} style={{height:100}}>
-              <Autocomplete
-                  id='combo-box'
-                  options={searchData?.data ? searchData?.data: []}
-                  getOptionLabel={(option) => option.name}
-                  style={{ width: '350px' }}
-                  onChange={(e,value) => searchByName(value?.name)}
-                  renderOption={(option) => (
-                    <>
-                      <img
-                        src={option.thumbnail_path}
-                        style={{ width: '60px', height: '80px',borderRadius:12 }}
+              <TableRow>
+                <TableCell colSpan={3} style={{ height: 100 }}>
+                <div style={{display:'flex'}}>
+                <Autocomplete
+                    id="combo-box"
+                    options={searchData? searchData : []}
+                    getOptionLabel={(option) => option.name}
+                    style={{ width: "350px" }}
+                    onChange={(e, value) => searchByName(value?.name)}
+                    renderOption={(option) => (
+                      <>
+                        <img
+                          src={option.thumbnail_path}
+                          alt={option.name}
+                          style={{
+                            width: "60px",
+                            height: "80px",
+                            borderRadius: 12,
+                          }}
+                        />
+                        <span style={{ marginLeft: "8px" }}>{option.name}</span>
+                      </>
+                    )}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        placeholder="Search Shop"
                       />
-                      <span style={{ marginLeft: '8px' }}>
-                        {option.name}
-                      </span>
-                    </>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      variant='outlined'
-                      placeholder='Search Shop'
-                    />
-                  )}
-                />
-              </TableCell>
-              <TableCell colSpan={5} style={{ textAlign: "center",height:50 }}>
-              { isFetching  && (
-                  <LinearProgress color="secondary" size="10px" />
-                )}
-                {(
-                  isLoading && (
+                    )}
+                  />
+                   <Select native variant='outlined' className="ml-5" onChange={(event)=>filterManga(event.target.value)}>
+                  <option value="desc">desc</option>
+                  <option value="asc">asc</option>
+                </Select>
+                <Select native variant='outlined' className="ml-5" onChange={(event)=>setFilterName(event.target.value)}>
+                  <option value="id">Id</option>
+                  <option value="name">Name</option>
+                  <option value="release_date">Date</option>
+                </Select>
+                </div>
+                </TableCell>
+                <TableCell
+                  colSpan={5}
+                  style={{ textAlign: "center", height: 50 }}
+                >
+                  {isFetching && (
                     <LinearProgress color="secondary" size="10px" />
-                  )
-                )}
-              </TableCell>
-            </TableRow>
+                  )}
+                  {isLoading && (
+                    <LinearProgress color="secondary" size="10px" />
+                  )}
+                </TableCell>
+              </TableRow>
             </TableHead>
             <TableBody>
               <TableRow>
@@ -113,17 +167,19 @@ const ShowMangaPage = () => {
                 <TableCell>Genre</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
-              {data?.data.map(
+              {datas.map(
                 (item) =>
                   item.publish_status == 1 && (
-                    <TableRow
-                      hover
-                      key={item.id}
-                      
-                    >
+                    <TableRow hover key={item.id}>
                       <TableCell>{item.id}</TableCell>
-                      <TableCell style={{cursor:"pointer"}} onClick={() => navigate(`/admin/manga/detail/${item.id}`)}>
+                      <TableCell
+                        style={{ cursor: "pointer" }}
+                        onClick={() =>
+                          navigate(`/admin/manga/detail/${item.id}`)
+                        }
+                      >
                         <img
+                        alt={item.name}
                           src={item.thumbnail_path}
                           style={{ width: 80, height: 120, borderRadius: 12 }}
                         />
@@ -139,10 +195,16 @@ const ShowMangaPage = () => {
                           color="secondary"
                           size="small"
                         >
-                          <Button onClick={() => navigate(`/admin/createmanga/${item.id}`)}>
+                          <Button
+                            onClick={() =>
+                              navigate(`/admin/createmanga/${item.id}`)
+                            }
+                          >
                             <EditIcon />
                           </Button>
-                          <Button onClick={() => deleting(item.id,item.thumbnail)}>
+                          <Button
+                            onClick={() => deleting(item.id, item.thumbnail)}
+                          >
                             <DeleteIcon />
                           </Button>
                         </ButtonGroup>

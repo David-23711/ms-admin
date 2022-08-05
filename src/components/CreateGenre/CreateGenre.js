@@ -51,12 +51,13 @@ const CreateGenre = ({
     setTimeout(() => resetFunction(), 1500);
   }
   const cancleUpdate = () => {
-    setIsEdit();
+    setIsEdit(false);
     handleReset({ genre: "" });
   };
   const onSubmit = (data) => {
     if (isEdit) {
       updateGenre({ genreId, genre: data.genre });
+      setIsEdit(false);
     } else {
       createGenre(data.genre);
     }
